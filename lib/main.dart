@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:instagram_clone/state/auth/models/auth_result.dart';
+import 'package:instagram_clone/state/auth/providers/auth_state_provider.dart';
 import 'firebase_options.dart';
 
+import 'dart:developer' as devtools show log;
+
+extension Log on Object {
+  void log() => devtools.log(toString());
+}
+
 void main() async {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
   );
 }
 
@@ -19,7 +34,7 @@ class MyApp extends StatelessWidget {
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         primarySwatch: Colors.blueGrey,
-      ), 
+      ),
       themeMode: ThemeMode.dark,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -28,54 +43,70 @@ class MyApp extends StatelessWidget {
         // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: Consumer(
+        builder: (context, ref, child) {
+          final isLoggedIn =
+              ref.watch(authStateProvider).result == AuthResult.success;
+          isLoggedIn.log();
+          if (isLoggedIn) {
+            return const MainView();
+          } else {
+            return const LoginView();
+          }
+        },
+      ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+//? ----------- for when you're already logged in
+class MainView extends StatelessWidget {
+  const MainView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // LoadingScreen.instance().show(context: context, text: "Hello World");
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        // backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('Main View'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
+      body: Consumer(
+        builder: (context, ref, child) {
+          return TextButton(
+            onPressed: () async {
+              ref.read(authStateProvider.notifier).logOut();
+            },
+            child: const Text('Log Out'),
+          );
+        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class LoginView extends ConsumerWidget {
+  const LoginView({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Login View'),
+      ),
+      body: Column(
+        children: [
+          TextButton(
+            onPressed: ref.read(authStateProvider.notifier).loginWithGoogle,
+            child: const Text('Sign In with Google'),
+          ),
+          TextButton(
+            onPressed: ref.read(authStateProvider.notifier).loginWithFacebook,
+            child: const Text('Sign In with Facebook'),
+          ),
+        ],
       ),
     );
   }
